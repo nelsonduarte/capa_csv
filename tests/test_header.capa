@@ -16,6 +16,7 @@ fun cell(h: HeaderTable, row: Int, col: String) -> String
         Ok(v)  -> v
         Err(e) -> match e
             NoSuchColumn(_) -> "ERR:no_column"
+            NoSuchRow(_)    -> "ERR:no_row"
             ShortRow(_)     -> "ERR:short_row"
             _               -> "ERR:other"
 
@@ -48,12 +49,30 @@ fun main(stdio: Stdio)
     // unknown column is a typed error
     t.eq_str(stdio, "unknown_column", cell(h, 0, "missing"), "ERR:no_column")
 
-    // a short row: header has 3 columns, this row has 2 fields
+    // a short row: header has 3 columns, this row has 2 fields.
+    // The row exists, so a missing column on it is ShortRow.
     let short = match parse_headed("a,b,c\n1,2\n")
         Ok(x)  -> x
         Err(_) -> HeaderTable { columns: [], rows: [] }
     t.eq_str(stdio, "short_row_present_col", cell(short, 0, "a"), "1")
     t.eq_str(stdio, "short_row_missing_col", cell(short, 0, "c"), "ERR:short_row")
+
+    // a row index past the end is NoSuchRow, distinct from a
+    // short row: the data record simply does not exist. `short`
+    // has exactly one data row (index 0), so index 1 is absent.
+    t.eq_str(stdio, "row_out_of_range", cell(short, 1, "a"), "ERR:no_row")
+    // even a valid column on a non-existent row is NoSuchRow,
+    // not ShortRow: the row is the thing that is missing.
+    t.eq_str(stdio, "row_out_of_range_valid_col", cell(h, 5, "account"), "ERR:no_row")
+    // the two errors render with distinct, non-misleading text
+    let no_row_msg = match h.get(5, "account")
+        Ok(_)  -> "unexpected ok"
+        Err(e) -> error_message(e)
+    t.eq_str(stdio, "no_row_message", no_row_msg, "no such data row: index 5")
+    let short_msg = match short.get(0, "c")
+        Ok(_)  -> "unexpected ok"
+        Err(e) -> error_message(e)
+    t.eq_str(stdio, "short_row_message", short_msg, "row is too short to hold column 'c'")
 
     // header-only input: columns set, zero data rows
     let only = match parse_headed("a,b,c\n")

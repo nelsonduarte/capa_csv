@@ -68,15 +68,18 @@ pub type Table {
 //                    closing quote, e.g. `"ab"c`)
 //   BadDialect    - the caller handed an unusable delimiter
 //   NoSuchColumn  - header view: a column name not in the header
-//   ShortRow      - header view: the row has fewer fields than
-//                   the header has columns, so the named column
-//                   has no value in this row
+//   NoSuchRow     - header view: no data record at that index
+//                   (the row simply does not exist)
+//   ShortRow      - header view: the row exists but has fewer
+//                   fields than the header has columns, so the
+//                   named column has no value in this row
 
 pub type CsvError =
     UnclosedQuote(Int)
     UnexpectedChar(Int)
     BadDialect(String)
     NoSuchColumn(String)
+    NoSuchRow(Int)
     ShortRow(String)
 
 /// A human-readable, backend-identical rendering of an error.
@@ -88,4 +91,5 @@ pub fun error_message(e: CsvError) -> String
         UnexpectedChar(rec) -> "unexpected character after quoted field in record ${rec}"
         BadDialect(m)       -> "bad dialect: ${m}"
         NoSuchColumn(name)  -> "no such column: '${name}'"
+        NoSuchRow(idx)      -> "no such data row: index ${idx}"
         ShortRow(name)      -> "row is too short to hold column '${name}'"

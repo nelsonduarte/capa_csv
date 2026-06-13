@@ -18,6 +18,7 @@ fun outcome(input: String) -> String
             UnexpectedChar(_) -> "unexpected"
             BadDialect(_)     -> "bad_dialect"
             NoSuchColumn(_)   -> "no_column"
+            NoSuchRow(_)      -> "no_row"
             ShortRow(_)       -> "short_row"
 
 fun outcome_with(input: String, d: Dialect) -> String
@@ -28,6 +29,7 @@ fun outcome_with(input: String, d: Dialect) -> String
             UnexpectedChar(_) -> "unexpected"
             BadDialect(_)     -> "bad_dialect"
             NoSuchColumn(_)   -> "no_column"
+            NoSuchRow(_)      -> "no_row"
             ShortRow(_)       -> "short_row"
 
 fun main(stdio: Stdio)
