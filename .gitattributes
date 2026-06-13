@@ -1,0 +1,11 @@
+# Keep source and fixtures LF-terminated on every platform. The
+# CSV parser is sensitive to CR and LF (they are RFC 4180 record
+# terminators and valid quoted-field content), so the committed
+# fixtures must not be rewritten to CRLF by a Windows checkout.
+*.capa   text eol=lf
+*.csv    text eol=lf
+*.md     text eol=lf
+*.toml   text eol=lf
+*.yml    text eol=lf
+*.asc    text eol=lf
+LICENSE  text eol=lf
