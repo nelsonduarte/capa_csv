@@ -1,0 +1,79 @@
+// tests/test_errors.capa
+//
+// Malformed input returns a typed Err, never a crash or panic.
+// Each case asserts both that parsing failed and which variant
+// it produced (matched structurally, then rendered for the
+// failure message).
+
+import capa_test.testing
+import capa_csv.model
+import capa_csv.parse
+
+// Classify a parse outcome into a short tag for assertion.
+fun outcome(input: String) -> String
+    return match parse(input)
+        Ok(_)  -> "ok"
+        Err(e) -> match e
+            UnclosedQuote(_)  -> "unclosed"
+            UnexpectedChar(_) -> "unexpected"
+            BadDialect(_)     -> "bad_dialect"
+            NoSuchColumn(_)   -> "no_column"
+            ShortRow(_)       -> "short_row"
+
+fun outcome_with(input: String, d: Dialect) -> String
+    return match parse_with(input, d)
+        Ok(_)  -> "ok"
+        Err(e) -> match e
+            UnclosedQuote(_)  -> "unclosed"
+            UnexpectedChar(_) -> "unexpected"
+            BadDialect(_)     -> "bad_dialect"
+            NoSuchColumn(_)   -> "no_column"
+            ShortRow(_)       -> "short_row"
+
+fun main(stdio: Stdio)
+    let t = tester()
+
+    // a quoted field with no closing quote
+    t.eq_str(stdio, "unclosed_quote",
+        outcome("a,\"unterminated\n"), "unclosed")
+
+    // a quote that opens at end of input
+    t.eq_str(stdio, "unclosed_at_eof",
+        outcome("\""), "unclosed")
+
+    // text immediately after a closing quote
+    t.eq_str(stdio, "text_after_quote",
+        outcome("\"ab\"c\n"), "unexpected")
+
+    // a quote that opens mid-field (after content)
+    t.eq_str(stdio, "quote_after_content",
+        outcome("ab\"c\"\n"), "unexpected")
+
+    // the record number is carried in the error
+    let rec = match parse("ok,ok\nfine,fine\n\"bad\n")
+        Ok(_)  -> -1
+        Err(e) -> match e
+            UnclosedQuote(n) -> n
+            _                -> -2
+    t.eq_int(stdio, "unclosed_record_number", rec, 3)
+
+    // multi-character delimiter is rejected before parsing
+    t.eq_str(stdio, "multichar_delimiter",
+        outcome_with("a,,b\n", with_delimiter(",,")), "bad_dialect")
+
+    // empty delimiter is rejected
+    t.eq_str(stdio, "empty_delimiter",
+        outcome_with("ab\n", with_delimiter("")), "bad_dialect")
+
+    // the quote character cannot also be the delimiter
+    t.eq_str(stdio, "quote_as_delimiter",
+        outcome_with("a\"b\n", with_delimiter("\"")), "bad_dialect")
+
+    // a newline delimiter is rejected
+    t.eq_str(stdio, "newline_delimiter",
+        outcome_with("a\nb\n", with_delimiter("\n")), "bad_dialect")
+
+    // a valid document still parses with no error
+    t.eq_str(stdio, "valid_is_ok", outcome("a,b\n1,2\n"), "ok")
+
+    t.finish(stdio)

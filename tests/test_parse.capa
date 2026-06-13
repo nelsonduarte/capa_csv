@@ -1,0 +1,104 @@
+// tests/test_parse.capa
+//
+// The RFC 4180 core, asserted against the Python csv module's
+// outputs (the oracle). Each expected String is the flattened
+// rendering of what `python -m csv` produces for that exact
+// input, with the one documented divergence: a wholly blank
+// line between records yields no Row here (Python yields a
+// zero-field row).
+
+import capa_test.testing
+import capa_csv.model
+import capa_csv.parse
+import support
+
+// Parse and render in one step; on a parse error, surface the
+// message so the assertion fails loudly with the reason.
+fun rendered(input: String) -> String
+    return match parse(input)
+        Ok(t)  -> render_table(t)
+        Err(e) -> "ERR: ${error_message(e)}"
+
+fun rendered_with(input: String, d: Dialect) -> String
+    return match parse_with(input, d)
+        Ok(t)  -> render_table(t)
+        Err(e) -> "ERR: ${error_message(e)}"
+
+fun main(stdio: Stdio)
+    let t = tester()
+
+    // simple
+    t.eq_str(stdio, "simple", rendered("a,b,c\n1,2,3\n"),
+        "<a>|<b>|<c> / <1>|<2>|<3>")
+
+    // final record without a trailing newline
+    t.eq_str(stdio, "no_trailing_newline", rendered("a,b,c\n1,2,3"),
+        "<a>|<b>|<c> / <1>|<2>|<3>")
+
+    // delimiter inside a quoted field is literal
+    t.eq_str(stdio, "quoted_comma", rendered("name,note\n\"Smith, John\",hello\n"),
+        "<name>|<note> / <Smith, John>|<hello>")
+
+    // doubled quotes decode to a single quote
+    t.eq_str(stdio, "escaped_quotes", rendered("a,b\n\"she said \"\"hi\"\"\",x\n"),
+        "<a>|<b> / <she said \"hi\">|<x>")
+
+    // a newline inside a quoted field is literal field content
+    t.eq_str(stdio, "newline_in_field", rendered("a,b\n\"line1\nline2\",x\n"),
+        "<a>|<b> / <line1\nline2>|<x>")
+
+    // CRLF record terminators
+    t.eq_str(stdio, "crlf", rendered("a,b\r\n1,2\r\n"),
+        "<a>|<b> / <1>|<2>")
+
+    // empty fields and an all-empty record
+    t.eq_str(stdio, "empty_fields", rendered("a,,c\n,,\n"),
+        "<a>|<>|<c> / <>|<>|<>")
+
+    // single-field records
+    t.eq_str(stdio, "single_field", rendered("hello\nworld\n"),
+        "<hello> / <world>")
+
+    // an explicitly quoted empty field
+    t.eq_str(stdio, "quoted_empty", rendered("a,\"\",c\n"),
+        "<a>|<>|<c>")
+
+    // a trailing delimiter makes a trailing empty field
+    t.eq_str(stdio, "trailing_delim", rendered("a,b,\n"),
+        "<a>|<b>|<>")
+
+    // a leading delimiter makes a leading empty field
+    t.eq_str(stdio, "leading_delim", rendered(",a,b\n"),
+        "<>|<a>|<b>")
+
+    // adjacent quoted fields
+    t.eq_str(stdio, "quote_then_text", rendered("\"a\",\"b\"\n"),
+        "<a>|<b>")
+
+    // CRLF preserved verbatim inside a quoted field
+    t.eq_str(stdio, "crlf_inside_quote", rendered("\"x\r\ny\",z\n"),
+        "<x\r\ny>|<z>")
+
+    // unicode fields round through codepoint-correct char access
+    t.eq_str(stdio, "unicode", rendered("café,naïve\nüber,résumé\n"),
+        "<café>|<naïve> / <über>|<résumé>")
+
+    // documented divergence: a blank line between records is
+    // skipped, not turned into a zero-field row
+    t.eq_str(stdio, "blank_line_skipped", rendered("a,b\n\n1,2\n"),
+        "<a>|<b> / <1>|<2>")
+
+    // empty input is an empty table
+    t.eq_str(stdio, "empty_input", rendered(""), "")
+
+    // tab dialect
+    t.eq_str(stdio, "tab_delim",
+        rendered_with("a\tb\tc\n1\t2\t3\n", tab()),
+        "<a>|<b>|<c> / <1>|<2>|<3>")
+
+    // arbitrary delimiter (semicolon)
+    t.eq_str(stdio, "semicolon_delim",
+        rendered_with("a;b\n1;2\n", with_delimiter(";")),
+        "<a>|<b> / <1>|<2>")
+
+    t.finish(stdio)

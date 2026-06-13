@@ -1,0 +1,73 @@
+// tests/test_write.capa
+//
+// The writer: correct RFC 4180 quoting, and a parse->write->parse
+// round-trip that preserves every field value.
+
+import capa_test.testing
+import capa_csv.model
+import capa_csv.parse
+import capa_csv.write
+import support
+
+// One record built from a literal list, serialised.
+fun row_of(fields: List<String>) -> String
+    return write_row(fields)
+
+fun main(stdio: Stdio)
+    let t = tester()
+
+    // plain fields are written verbatim
+    t.eq_str(stdio, "plain_row", row_of(["a", "b", "c"]), "a,b,c")
+
+    // a field with the delimiter is quoted
+    t.eq_str(stdio, "quote_for_comma", row_of(["Smith, John", "x"]),
+        "\"Smith, John\",x")
+
+    // an interior quote is doubled and the field quoted
+    t.eq_str(stdio, "quote_for_quote", row_of(["a\"b"]),
+        "\"a\"\"b\"")
+
+    // a newline forces quoting
+    t.eq_str(stdio, "quote_for_newline", row_of(["line1\nline2", "x"]),
+        "\"line1\nline2\",x")
+
+    // a CR forces quoting
+    t.eq_str(stdio, "quote_for_cr", row_of(["a\rb"]),
+        "\"a\rb\"")
+
+    // an empty field needs no quoting
+    t.eq_str(stdio, "empty_field", row_of(["", "x"]), ",x")
+
+    // a whole Table writes each record on its own LF-terminated line
+    let table = Table { rows: [
+        Row { fields: ["name", "note"] },
+        Row { fields: ["Smith, John", "a\"b"] }
+    ] }
+    let nl = "\n"
+    let bar = "|"
+    let flat = write(table).replace(nl, bar)
+    t.eq_str(stdio, "write_table", flat,
+        "name,note|\"Smith, John\",\"a\"\"b\"|")
+
+    // round trip: parse, write, parse again, fields preserved
+    let inputs = [
+        "a,b,c\n1,2,3\n",
+        "name,note\n\"Smith, John\",hello\n",
+        "a,b\n\"she said \"\"hi\"\"\",x\n",
+        "a,b\n\"line1\nline2\",x\n",
+        "a,,c\n,,\n",
+        "café,naïve\nüber,résumé\n"
+    ]
+    var i = 0
+    for input in inputs
+        let original = match parse(input)
+            Ok(x)  -> x
+            Err(_) -> Table { rows: [] }
+        let reparsed = match parse(write(original))
+            Ok(x)  -> x
+            Err(_) -> Table { rows: [] }
+        t.eq_str(stdio, "round_trip_${i}",
+            render_table(reparsed), render_table(original))
+        i = i + 1
+
+    t.finish(stdio)

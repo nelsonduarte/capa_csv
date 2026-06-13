@@ -1,0 +1,62 @@
+// example.capa
+//
+// Parse a real CSV file (data/employees.csv) and print a
+// summary: record and column counts, then one field accessed by
+// header name per row.
+//
+// The library itself is pure; the only capabilities here belong
+// to the example: Fs to read the fixture, Stdio to print. The
+// example attenuates its Fs to the data/ directory before the
+// first read.
+//
+// Run from the repository root:
+//
+//     capa --run example.capa
+//     capa --wasm --run example.capa   # identical output
+
+import capa_csv.model
+import capa_csv.parse
+import capa_csv.header
+
+fun main(stdio: Stdio, fs: Fs)
+    let data = fs.restrict_to("data/")
+    let text = match data.read("data/employees.csv")
+        Ok(s)  -> s
+        Err(e) -> return stdio.eprintln("cannot read fixture: ${e}")
+
+    // Raw parse: how many records and how wide is the header?
+    let table = match parse(text)
+        Ok(t)  -> t
+        Err(e) -> return stdio.eprintln("parse failed: ${error_message(e)}")
+
+    let header_width = match table.rows.first()
+        Some(r) -> r.fields.length()
+        None    -> 0
+    stdio.println("records (incl. header): ${table.rows.length()}")
+    stdio.println("columns: ${header_width}")
+
+    // Header view: address fields by column name.
+    let view = match parse_headed(text)
+        Ok(h)  -> h
+        Err(e) -> return stdio.eprintln("header parse failed: ${error_message(e)}")
+
+    stdio.println("data rows: ${view.length()}")
+    stdio.println("")
+    stdio.println("name -> note (by column name):")
+    var i = 0
+    while i < view.length()
+        let name = field(view, i, "name")
+        let note = field(view, i, "note")
+        let shown = if note.is_empty() then "(no note)" else note
+        stdio.println("  ${name}: ${shown}")
+        i = i + 1
+
+    // A column that does not exist is a typed error, not a crash.
+    match view.get(0, "salary")
+        Ok(_)  -> stdio.println("")
+        Err(e) -> stdio.println("\nlookup 'salary': ${error_message(e)}")
+
+fun field(view: HeaderTable, row: Int, col: String) -> String
+    return match view.get(row, col)
+        Ok(v)  -> v
+        Err(e) -> "<${error_message(e)}>"

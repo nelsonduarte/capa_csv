@@ -1,0 +1,39 @@
+// tests/support.capa
+//
+// Shared rendering helpers for the capa_csv suites. A parsed
+// Table is flattened to one deterministic String so a single
+// `eq_str` assertion through capa_test compares the whole
+// document against the Python-csv oracle.
+//
+// Encoding: fields are wrapped in <...> and joined with "|";
+// records are joined with " / ". Both delimiters are characters
+// the oracle's inputs never contain, so the rendering is
+// unambiguous for these fixtures.
+
+import capa_csv.model
+
+/// Render a Table as "<a>|<b> / <1>|<2>".
+pub fun render_table(t: Table) -> String
+    var out = ""
+    var first_row = true
+    for row in t.rows
+        let line = render_row(row.fields)
+        if first_row
+            out = line
+            first_row = false
+        else
+            out = "${out} / ${line}"
+    return out
+
+/// Render one record's fields as "<a>|<b>|<c>".
+pub fun render_row(fields: List<String>) -> String
+    var out = ""
+    var first = true
+    for f in fields
+        let cell = "<${f}>"
+        if first
+            out = cell
+            first = false
+        else
+            out = "${out}|${cell}"
+    return out

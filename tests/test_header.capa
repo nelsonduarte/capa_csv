@@ -1,0 +1,71 @@
+// tests/test_header.capa
+//
+// The header view: column names from the first record, field
+// access by name, and the typed errors for an unknown column
+// and a too-short row.
+
+import capa_test.testing
+import capa_csv.model
+import capa_csv.parse
+import capa_csv.header
+
+// Access a cell, rendering errors as a tag so one assertion
+// covers both the happy and the failure paths.
+fun cell(h: HeaderTable, row: Int, col: String) -> String
+    return match h.get(row, col)
+        Ok(v)  -> v
+        Err(e) -> match e
+            NoSuchColumn(_) -> "ERR:no_column"
+            ShortRow(_)     -> "ERR:short_row"
+            _               -> "ERR:other"
+
+fun main(stdio: Stdio)
+    let t = tester()
+
+    let h = match parse_headed("account,total,risk\nacc-1,100,low\nacc-2,200,high\n")
+        Ok(x)  -> x
+        Err(_) -> HeaderTable { columns: [], rows: [] }
+
+    // header is consumed; only data rows remain
+    t.eq_int(stdio, "data_row_count", h.length(), 2)
+    t.eq_str_list(stdio, "columns", h.columns, ["account", "total", "risk"])
+
+    // access by column name
+    t.eq_str(stdio, "r0_account", cell(h, 0, "account"), "acc-1")
+    t.eq_str(stdio, "r0_total", cell(h, 0, "total"), "100")
+    t.eq_str(stdio, "r1_risk", cell(h, 1, "risk"), "high")
+
+    // column membership
+    t.eq_bool(stdio, "has_known_column", h.has_column("total"), true)
+    t.eq_bool(stdio, "has_unknown_column", h.has_column("nope"), false)
+
+    // index lookup
+    let idx = match h.column_index("risk")
+        Some(i) -> i
+        None    -> -1
+    t.eq_int(stdio, "column_index", idx, 2)
+
+    // unknown column is a typed error
+    t.eq_str(stdio, "unknown_column", cell(h, 0, "missing"), "ERR:no_column")
+
+    // a short row: header has 3 columns, this row has 2 fields
+    let short = match parse_headed("a,b,c\n1,2\n")
+        Ok(x)  -> x
+        Err(_) -> HeaderTable { columns: [], rows: [] }
+    t.eq_str(stdio, "short_row_present_col", cell(short, 0, "a"), "1")
+    t.eq_str(stdio, "short_row_missing_col", cell(short, 0, "c"), "ERR:short_row")
+
+    // header-only input: columns set, zero data rows
+    let only = match parse_headed("a,b,c\n")
+        Ok(x)  -> x
+        Err(_) -> HeaderTable { columns: [], rows: [] }
+    t.eq_int(stdio, "header_only_rows", only.length(), 0)
+    t.eq_str_list(stdio, "header_only_columns", only.columns, ["a", "b", "c"])
+
+    // a quoted header name with an embedded delimiter
+    let q = match parse_headed("\"last, first\",age\nDoe Jane,30\n")
+        Ok(x)  -> x
+        Err(_) -> HeaderTable { columns: [], rows: [] }
+    t.eq_str(stdio, "quoted_header_access", cell(q, 0, "last, first"), "Doe Jane")
+
+    t.finish(stdio)
