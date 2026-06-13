@@ -1,0 +1,67 @@
+// capa_csv.write
+//
+// The CSV writer: serialise rows back to RFC 4180 text. Zero
+// capabilities; it returns a String the caller emits with
+// whatever authority it already holds.
+//
+// Quoting rule, exactly RFC 4180: a field is quoted when it
+// contains the delimiter, a double quote, CR or LF; an interior
+// double quote is doubled. Fields needing no quoting are
+// written verbatim. Records are terminated by LF (the writer
+// uses LF, not CRLF; both parse back identically).
+//
+// Round-trip guarantee, tested: for any Table the parser
+// produced, `write` then `parse` yields the same field values.
+
+import capa_csv.model
+
+/// Serialise a Table to CSV text with the comma dialect.
+pub fun write(table: Table) -> String
+    return write_with(table, comma())
+
+/// Serialise a Table to CSV text with an explicit dialect.
+pub fun write_with(table: Table, dialect: Dialect) -> String
+    let delim = dialect.delimiter
+    var out = ""
+    for row in table.rows
+        out = out + encode_row(row.fields, delim) + "\n"
+    return out
+
+/// Serialise a single list of fields to one CSV record (no
+/// trailing newline). Useful for streaming a header line or
+/// appending rows one at a time.
+pub fun write_row(fields: List<String>) -> String
+    return encode_row(fields, ",")
+
+/// Serialise a single record with an explicit delimiter.
+pub fun write_row_with(fields: List<String>, dialect: Dialect) -> String
+    return encode_row(fields, dialect.delimiter)
+
+fun encode_row(fields: List<String>, delim: String) -> String
+    var out = ""
+    var first = true
+    for f in fields
+        if first
+            out = encode_field(f, delim)
+            first = false
+        else
+            out = out + delim + encode_field(f, delim)
+    return out
+
+fun encode_field(field: String, delim: String) -> String
+    if needs_quoting(field, delim)
+        // Double every interior quote, then wrap in quotes.
+        let escaped = field.replace("\"", "\"\"")
+        return "\"" + escaped + "\""
+    return field
+
+fun needs_quoting(field: String, delim: String) -> Bool
+    if field.contains(delim)
+        return true
+    if field.contains("\"")
+        return true
+    if field.contains("\n")
+        return true
+    if field.contains("\r")
+        return true
+    return false
