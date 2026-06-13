@@ -4,17 +4,20 @@
 # identity, and so `capa test` treats this directory as the
 # project root.
 #
-# capa_test is a dev-dependency: it is vendored only when this
+# capa_test is a dev-dependency: it is resolved only when this
 # repository is itself the install root (running its own tests),
-# never when capa_csv is consumed as a dependency. It is
-# referenced by local path here while the ecosystem is
-# pre-publication; the published form is a git + tag + verify_key
-# entry (see README).
+# never when capa_csv is consumed as a dependency. It is pinned
+# to its published v0.1.0 tag with the publisher verify_key, the
+# same git + tag + verify_key shape a real consumer uses, so
+# `capa install` enforces the full supply-chain check (lockfile
+# SHA + GPG tag signature + SLSA L2 provenance) on it too.
 
 [package]
 name = "capa_csv"
 version = "0.1.0"
 capa = ">=1.0.0"
 
-[dev-dependencies]
-capa_test = { path = "../capa_test" }
+[dev-dependencies.capa_test]
+git = "https://github.com/nelsonduarte/capa_test"
+tag = "v0.1.0"
+verify_key = "6C1D222D491FB88031E041A536CFB426101AA24B"

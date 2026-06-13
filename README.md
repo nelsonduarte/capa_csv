@@ -112,7 +112,8 @@ pub type CsvError =
     UnexpectedChar(Int)   // text after a closing quote, e.g. "ab"c
     BadDialect(String)    // delimiter not a single non-quote character
     NoSuchColumn(String)  // header view: unknown column name
-    ShortRow(String)      // header view: row too short for that column
+    NoSuchRow(Int)        // header view: no data record at that index
+    ShortRow(String)      // header view: row exists but too short for that column
 
 pub fun error_message(e: CsvError) -> String
 ```
@@ -229,19 +230,21 @@ test_write.capa ... ok
 4 test(s): 4 passed, 0 failed
 ```
 
-`capa_test` is declared under `[dev-dependencies]` (a local
-`path` entry while the ecosystem is pre-publication; the
-published form is the same git + tag + verify_key shape as any
-dependency). Dev-dependencies are resolved only when this
-repository is the install root, so a consumer of `capa_csv`
-never fetches the test library.
+`capa_test` is declared under `[dev-dependencies]` with the same
+git + tag + verify_key shape as any published dependency, pinned
+to its `v0.1.0` tag and verified against the publisher key, so
+`capa install` runs the full three-layer check (lockfile SHA +
+GPG tag signature + SLSA L2 provenance) on it. Dev-dependencies
+are resolved only when this repository is the install root, so a
+consumer of `capa_csv` never fetches the test library.
 
 ## Audit claim
 
 A parser is exactly the kind of dependency a supply-chain
 attacker wants to own, so this one proves the empty claim about
 itself. `capa --manifest` over every library module reports, for
-all 38 functions:
+every one of the 24 functions defined across the four modules
+(`model` 4, `parse` 6, `header` 7, `write` 7):
 
 ```
 declared_capabilities:                []
