@@ -1,0 +1,20 @@
+# capa_csv package manifest. The library is pure Capa with zero
+# capabilities and zero shipping dependencies; this file exists
+# so `capa install` consumers and tooling can read the package
+# identity, and so `capa test` treats this directory as the
+# project root.
+#
+# capa_test is a dev-dependency: it is vendored only when this
+# repository is itself the install root (running its own tests),
+# never when capa_csv is consumed as a dependency. It is
+# referenced by local path here while the ecosystem is
+# pre-publication; the published form is a git + tag + verify_key
+# entry (see README).
+
+[package]
+name = "capa_csv"
+version = "0.1.0"
+capa = ">=1.0.0"
+
+[dev-dependencies]
+capa_test = { path = "../capa_test" }
