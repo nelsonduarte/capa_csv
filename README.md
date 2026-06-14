@@ -86,7 +86,7 @@ capa --wasm --run example.capa   # byte-identical output
 ```toml
 [dependencies.capa_csv]
 git = "https://github.com/nelsonduarte/capa_csv"
-tag = "v0.1.0"
+tag = "v0.1.1"
 verify_key = "6C1D222D491FB88031E041A536CFB426101AA24B"
 ```
 
